@@ -119,6 +119,84 @@ func (p *PolygonObject) Draw(screen *ebiten.Image) {
 	}
 }
 
+// GetBoundingBox returns the bounding box of the transformed polygon
+func (p *PolygonObject) GetBoundingBox() (minX, minY, maxX, maxY float64) {
+	transformedVertices := p.getTransformedVertices()
+	if len(transformedVertices) == 0 {
+		return 0, 0, 0, 0
+	}
+
+	minX, minY = transformedVertices[0].X, transformedVertices[0].Y
+	maxX, maxY = minX, minY
+
+	for _, vertex := range transformedVertices[1:] {
+		if vertex.X < minX {
+			minX = vertex.X
+		}
+		if vertex.X > maxX {
+			maxX = vertex.X
+		}
+		if vertex.Y < minY {
+			minY = vertex.Y
+		}
+		if vertex.Y > maxY {
+			maxY = vertex.Y
+		}
+	}
+
+	return minX, minY, maxX, maxY
+}
+
+// DrawWithWrapping draws the polygon with screen wrapping
+func (p *PolygonObject) DrawWithWrapping(screen *ebiten.Image, screenWidth, screenHeight float64) {
+	if len(p.Vertices) < 3 {
+		return
+	}
+
+	// Get bounding box to check if we need wrapping
+	minX, minY, maxX, maxY := p.GetBoundingBox()
+
+	// Store original position
+	originalPos := p.Position
+
+	// Determine which edges the polygon is crossing
+	drawOffsets := []Vector2{{0, 0}} // Always draw at original position
+
+	// Check horizontal wrapping
+	if minX < 0 && maxX > 0 {
+		// Crossing left edge - also draw on right side
+		drawOffsets = append(drawOffsets, Vector2{screenWidth, 0})
+	} else if maxX > screenWidth && minX < screenWidth {
+		// Crossing right edge - also draw on left side
+		drawOffsets = append(drawOffsets, Vector2{-screenWidth, 0})
+	}
+
+	// Check vertical wrapping
+	if minY < 0 && maxY > 0 {
+		// Crossing top edge - also draw on bottom
+		for i := len(drawOffsets) - 1; i >= 0; i-- {
+			offset := drawOffsets[i]
+			drawOffsets = append(drawOffsets, Vector2{offset.X, screenHeight})
+		}
+	} else if maxY > screenHeight && minY < screenHeight {
+		// Crossing bottom edge - also draw on top
+		for i := len(drawOffsets) - 1; i >= 0; i-- {
+			offset := drawOffsets[i]
+			drawOffsets = append(drawOffsets, Vector2{offset.X, -screenHeight})
+		}
+	}
+
+	// Draw the polygon at each required position
+	for _, offset := range drawOffsets {
+		p.Position.X = originalPos.X + offset.X
+		p.Position.Y = originalPos.Y + offset.Y
+		p.Draw(screen)
+	}
+
+	// Restore original position
+	p.Position = originalPos
+}
+
 // SetPosition sets the world position of the polygon
 func (p *PolygonObject) SetPosition(x, y float64) {
 	p.Position.X = x
@@ -151,8 +229,19 @@ func (p *PolygonObject) Move(dx, dy float64) {
 	p.Position.Y += dy
 }
 
-// Update updates the polygon's position and rotation based on velocity and rotation speed
-func (p *PolygonObject) Update() {
+// SetVelocity sets the velocity of the polygon
+func (p *PolygonObject) SetVelocity(vx, vy float64) {
+	p.Velocity.X = vx
+	p.Velocity.Y = vy
+}
+
+// SetRotationSpeed sets the rotation speed in radians per frame
+func (p *PolygonObject) SetRotationSpeed(speed float64) {
+	p.RotationSpeed = speed
+}
+
+// UpdateWithWrapping updates the polygon and wraps position around screen edges
+func (p *PolygonObject) Update(screenWidth, screenHeight float64) {
 	// Update position based on velocity
 	p.Position.X += p.Velocity.X
 	p.Position.Y += p.Velocity.Y
@@ -166,15 +255,17 @@ func (p *PolygonObject) Update() {
 	} else if p.Rotation < 0 {
 		p.Rotation += 2 * math.Pi
 	}
-}
 
-// SetVelocity sets the velocity of the polygon
-func (p *PolygonObject) SetVelocity(vx, vy float64) {
-	p.Velocity.X = vx
-	p.Velocity.Y = vy
-}
+	// Wrap position around screen edges
+	if p.Position.X < 0 {
+		p.Position.X += screenWidth
+	} else if p.Position.X > screenWidth {
+		p.Position.X -= screenWidth
+	}
 
-// SetRotationSpeed sets the rotation speed in radians per frame
-func (p *PolygonObject) SetRotationSpeed(speed float64) {
-	p.RotationSpeed = speed
+	if p.Position.Y < 0 {
+		p.Position.Y += screenHeight
+	} else if p.Position.Y > screenHeight {
+		p.Position.Y -= screenHeight
+	}
 }

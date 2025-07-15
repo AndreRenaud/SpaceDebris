@@ -11,15 +11,17 @@ import (
 
 // Game implements ebiten.Game interface.
 type Game struct {
-	asteroids []*PolygonObject
+	asteroids    []*PolygonObject
+	screenWidth  float64
+	screenHeight float64
 }
 
 // Update proceeds the game state.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// Update all asteroids (movement and rotation)
+	// Update all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
-		asteroid.Update()
+		asteroid.Update(g.screenWidth, g.screenHeight)
 	}
 	return nil
 }
@@ -27,16 +29,16 @@ func (g *Game) Update() error {
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Draw all asteroids
+	// Draw all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
-		asteroid.Draw(screen)
+		asteroid.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
 	}
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 800, 600
+	return int(g.screenWidth), int(g.screenHeight)
 }
 
 // NewGame creates a new game instance with initialized asteroids
@@ -44,7 +46,9 @@ func NewGame() *Game {
 	rand.Seed(time.Now().UnixNano())
 
 	game := &Game{
-		asteroids: make([]*PolygonObject, 3),
+		asteroids:    nil,
+		screenWidth:  800,
+		screenHeight: 600,
 	}
 
 	// Create 3 random asteroids
@@ -60,8 +64,8 @@ func NewGame() *Game {
 
 		// Random position within the screen bounds (with some margin)
 		asteroid.SetPosition(
-			50+rand.Float64()*(800-100), // X between 50 and 750
-			50+rand.Float64()*(600-100), // Y between 50 and 550
+			50+rand.Float64()*(game.screenWidth-100),  // X between 50 and 750
+			50+rand.Float64()*(game.screenHeight-100), // Y between 50 and 550
 		)
 
 		// Random rotation
@@ -79,7 +83,7 @@ func NewGame() *Game {
 		// Set color to white
 		asteroid.SetColor(color.White)
 
-		game.asteroids[i] = asteroid
+		game.asteroids = append(game.asteroids, asteroid)
 	}
 
 	return game
