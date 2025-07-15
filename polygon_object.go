@@ -77,15 +77,23 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 		FadeProgress:   0.0,
 		FadeSpeed:      0.0,
 		IsFading:       false,
+		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
 	}
 }
 
-// CreateTriangle creates a triangle polygon pointing upward
-func CreateTriangle(size float64) *PolygonObject {
+// CreatePlayer creates a spaceship polygon with wings and a divet at the back
+func CreatePlayer(size float64) *PolygonObject {
 	vertices := []Vector2{
-		{X: 0, Y: -size},          // Top vertex (pointing up)
-		{X: -size * 0.5, Y: size}, // Bottom left
-		{X: size * 0.5, Y: size},  // Bottom right
+		{X: 0, Y: -size},                 // Nose (top vertex, pointing up)
+		{X: -size * 0.3, Y: -size * 0.2}, // Left side of nose
+		{X: -size * 0.7, Y: size * 0.3},  // Left wing tip
+		{X: -size * 0.4, Y: size * 0.6},  // Left wing inner
+		{X: -size * 0.2, Y: size * 0.8},  // Left back corner
+		{X: 0, Y: size * 0.6},            // Center back (creates divet)
+		{X: size * 0.2, Y: size * 0.8},   // Right back corner
+		{X: size * 0.4, Y: size * 0.6},   // Right wing inner
+		{X: size * 0.7, Y: size * 0.3},   // Right wing tip
+		{X: size * 0.3, Y: -size * 0.2},  // Right side of nose
 	}
 	return &PolygonObject{
 		Vertices:       vertices,
@@ -101,6 +109,7 @@ func CreateTriangle(size float64) *PolygonObject {
 		FadeProgress:   0.0,
 		FadeSpeed:      0.0,
 		IsFading:       false,
+		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
 	}
 }
 

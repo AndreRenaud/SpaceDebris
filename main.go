@@ -164,6 +164,7 @@ func (g *Game) createBullet() {
 		Scale:         1.0,
 		Color:         color.White,
 		LineWidth:     1.0,
+		Trail:         make([]drawablePolygon, 0, ghostTrailLength),
 	}
 
 	// Set bullet velocity in the direction the player is facing
@@ -374,8 +375,8 @@ func (g *Game) Restart() {
 	// Reset bullet timing
 	g.lastBulletTime = time.Now()
 
-	// Create player ship (triangle)
-	g.player = CreateTriangle(15)                           // 15 pixel triangle
+	// Create player ship
+	g.player = CreatePlayer(20)
 	g.player.SetPosition(g.screenWidth/2, g.screenHeight/2) // Center of screen
 	blue := color.RGBA{0, 0, 255, 255}                      // Blue color
 	g.player.SetColor(blue)
