@@ -9,6 +9,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
+const (
+	ghostTrailLength = 5 // Number of frames to keep in the trail
+)
+
 // Vector2 represents a 2D point or vector
 type Vector2 struct {
 	X, Y float64
@@ -38,7 +42,12 @@ type PolygonObject struct {
 	FadeProgress   float64 // 0.0 to 1.0, where 0 is start color and 1 is end color
 	FadeSpeed      float64 // How fast to fade (increment per frame)
 	IsFading       bool    // Whether the object is currently fading
+	drawCount      int
+
+	Trail []drawablePolygon
 }
+
+type drawablePolygon []Vector2
 
 // CreateAsteroid creates an irregular asteroid-like polygon
 func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *PolygonObject {
@@ -96,7 +105,7 @@ func CreateTriangle(size float64) *PolygonObject {
 }
 
 // GetTransformedVertices returns the vertices transformed by position, rotation, and scale
-func (p *PolygonObject) getTransformedVertices() []Vector2 {
+func (p *PolygonObject) getTransformedVertices() drawablePolygon {
 	transformed := make([]Vector2, len(p.Vertices))
 	cos := math.Cos(p.Rotation)
 	sin := math.Sin(p.Rotation)
@@ -130,28 +139,57 @@ func init() {
 	whiteImage.Fill(color.White)
 }
 
-// Draw renders the polygon to the screen with antialiased lines
-func (p *PolygonObject) Draw(screen *ebiten.Image) {
-	if len(p.Vertices) < 3 {
+func (d drawablePolygon) Draw(screen *ebiten.Image, lineWidth float32, color color.Color) {
+	if len(d) < 3 {
 		return // Can't draw a polygon with less than 3 vertices
 	}
 
-	transformedVertices := p.getTransformedVertices()
-
 	// Draw the polygon outline using vector.StrokeLine for each edge
-	for i := 0; i < len(transformedVertices); i++ {
-		start := transformedVertices[i]
-		end := transformedVertices[(i+1)%len(transformedVertices)] // Wrap to first vertex for last line
+	for i := 0; i < len(d); i++ {
+		start := d[i]
+		end := d[(i+1)%len(d)] // Wrap to first vertex for last line
 
 		vector.StrokeLine(
 			screen,
 			float32(start.X), float32(start.Y),
 			float32(end.X), float32(end.Y),
-			p.LineWidth,
-			p.Color,
+			lineWidth,
+			color,
 			true, // antialiasing
 		)
 	}
+}
+
+// Draw renders the polygon to the screen with antialiased lines
+func (p *PolygonObject) Draw(screen *ebiten.Image) {
+	if len(p.Vertices) < 3 {
+		return // Can't draw a polygon with less than 3 vertices
+	}
+	p.drawCount++
+
+	max := len(p.Trail)
+	for i, trail := range p.Trail {
+		r, g, b, _ := p.Color.RGBA()
+		ratio := 1 - float64(i)/float64(max)
+		newCol := color.RGBA{
+			R: uint8(int(float64(r)*ratio) >> 8),
+			G: uint8(int(float64(g)*ratio) >> 8),
+			B: uint8(int(float64(b)*ratio) >> 8),
+			A: 0xff,
+		}
+		trail.Draw(screen, p.LineWidth, newCol)
+	}
+	transformedVertices := p.getTransformedVertices()
+	transformedVertices.Draw(screen, p.LineWidth, p.Color)
+
+	// Don't add everything to the trail
+	if p.drawCount%4 == 0 {
+		p.Trail = append([]drawablePolygon{transformedVertices}, p.Trail...)
+		if len(p.Trail) > ghostTrailLength {
+			p.Trail = p.Trail[:ghostTrailLength] // Limit trail length
+		}
+	}
+
 }
 
 // BoundingBox represents a rectangular bounding box
