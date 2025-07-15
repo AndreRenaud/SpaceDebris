@@ -60,6 +60,25 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 	}
 }
 
+// CreateTriangle creates a triangle polygon pointing upward
+func CreateTriangle(size float64) *PolygonObject {
+	vertices := []Vector2{
+		{X: 0, Y: -size},          // Top vertex (pointing up)
+		{X: -size * 0.5, Y: size}, // Bottom left
+		{X: size * 0.5, Y: size},  // Bottom right
+	}
+	return &PolygonObject{
+		Vertices:      vertices,
+		Position:      Vector2{X: 0, Y: 0},
+		Velocity:      Vector2{X: 0, Y: 0},
+		Rotation:      0,
+		RotationSpeed: 0,
+		Scale:         1.0,
+		Color:         color.White,
+		LineWidth:     1.0,
+	}
+}
+
 // GetTransformedVertices returns the vertices transformed by position, rotation, and scale
 func (p *PolygonObject) getTransformedVertices() []Vector2 {
 	transformed := make([]Vector2, len(p.Vertices))
