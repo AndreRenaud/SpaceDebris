@@ -24,6 +24,8 @@ type Game struct {
 	screenHeight   float64
 	lastBulletTime time.Time
 	bulletCooldown time.Duration
+	score          int
+	vectorFont     *VectorFont
 }
 
 // Update proceeds the game state.
@@ -172,6 +174,9 @@ func (g *Game) checkCollisions() {
 				// Remove the bullet
 				g.bullets = append(g.bullets[:i], g.bullets[i+1:]...)
 
+				// Increment score for hitting an asteroid
+				g.score++
+
 				// Split the asteroid or remove it if too small
 				g.splitAsteroid(j)
 
@@ -188,6 +193,9 @@ func (g *Game) checkCollisions() {
 	// Check player-asteroid collisions
 	for _, asteroid := range g.asteroids {
 		if PolygonsCollide(g.player, asteroid) {
+			// Reset score when player is hit
+			g.score = 0
+
 			// For now, just reset player position to center
 			// In a real game, you might handle lives, explosions, etc.
 			g.player.SetPosition(g.screenWidth/2, g.screenHeight/2)
@@ -278,6 +286,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, bullet := range g.bullets {
 		bullet.polygon.Draw(screen)
 	}
+
+	// Draw score in top-right corner
+	scoreWidth := g.vectorFont.GetTextWidth(g.score)
+	scoreX := float32(g.screenWidth) - scoreWidth - 20 // 20 pixels from right edge
+	scoreY := float32(20)                              // 20 pixels from top
+	g.vectorFont.DrawNumber(screen, g.score, scoreX, scoreY)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
@@ -297,6 +311,8 @@ func NewGame() *Game {
 		screenHeight:   600,
 		lastBulletTime: time.Now(),
 		bulletCooldown: 100 * time.Millisecond, // 100ms cooldown
+		score:          0,
+		vectorFont:     NewVectorFont(16, 24, 2, color.White), // 16x24 digit size, 2px line width, white color
 	}
 
 	// Create player ship (triangle)
