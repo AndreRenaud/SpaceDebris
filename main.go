@@ -171,8 +171,10 @@ func (g *Game) checkCollisions() {
 			if PolygonsCollide(bullet.polygon, asteroid) {
 				// Remove the bullet
 				g.bullets = append(g.bullets[:i], g.bullets[i+1:]...)
-				// Remove the asteroid
-				g.asteroids = append(g.asteroids[:j], g.asteroids[j+1:]...)
+
+				// Split the asteroid or remove it if too small
+				g.splitAsteroid(j)
+
 				bulletHit = true
 				break
 			}
@@ -193,6 +195,56 @@ func (g *Game) checkCollisions() {
 			break
 		}
 	}
+}
+
+// splitAsteroid splits an asteroid into two smaller ones or removes it if too small
+func (g *Game) splitAsteroid(asteroidIndex int) {
+	asteroid := g.asteroids[asteroidIndex]
+
+	// Calculate current size (approximate radius)
+	bbox := asteroid.GetBoundingBox()
+	currentSize := (bbox.MaxX - bbox.MinX + bbox.MaxY - bbox.MinY) / 4 // Average of width and height, divided by 2
+
+	const minSize = 15.0 // Minimum size threshold
+
+	if currentSize < minSize {
+		// Remove asteroid if too small
+		g.asteroids = append(g.asteroids[:asteroidIndex], g.asteroids[asteroidIndex+1:]...)
+		return
+	}
+
+	// Create two smaller asteroids
+	newSize := currentSize * 0.6    // Make them 60% of original size
+	irregularity := newSize * 0.3   // Proportional irregularity
+	numVertices := 6 + rand.Intn(5) // 6-10 vertices
+
+	// Create first smaller asteroid
+	asteroid1 := CreateAsteroid(newSize, irregularity, numVertices)
+	asteroid1.SetPosition(asteroid.Position.X-newSize*0.5, asteroid.Position.Y-newSize*0.5)
+	asteroid1.SetColor(asteroid.Color)
+
+	// Give it some velocity based on original velocity plus some random spread
+	vel1X := asteroid.Velocity.X + (rand.Float64()-0.5)*2
+	vel1Y := asteroid.Velocity.Y + (rand.Float64()-0.5)*2
+	asteroid1.SetVelocity(vel1X, vel1Y)
+	asteroid1.SetRotationSpeed((rand.Float64() - 0.5) * 0.15)
+
+	// Create second smaller asteroid
+	asteroid2 := CreateAsteroid(newSize, irregularity, numVertices)
+	asteroid2.SetPosition(asteroid.Position.X+newSize*0.5, asteroid.Position.Y+newSize*0.5)
+	asteroid2.SetColor(asteroid.Color)
+
+	// Give it velocity in roughly opposite direction
+	vel2X := asteroid.Velocity.X + (rand.Float64()-0.5)*2
+	vel2Y := asteroid.Velocity.Y + (rand.Float64()-0.5)*2
+	asteroid2.SetVelocity(vel2X, vel2Y)
+	asteroid2.SetRotationSpeed((rand.Float64() - 0.5) * 0.15)
+
+	// Remove the original asteroid
+	g.asteroids = append(g.asteroids[:asteroidIndex], g.asteroids[asteroidIndex+1:]...)
+
+	// Add the two new asteroids
+	g.asteroids = append(g.asteroids, asteroid1, asteroid2)
 }
 
 // Draw draws the game screen.
