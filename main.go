@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -8,6 +9,14 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// GameState represents the current state of the game
+type GameState int
+
+const (
+	GameStatePlaying GameState = iota
+	GameStateGameOver
 )
 
 // Bullet represents a projectile fired by the player
@@ -26,11 +35,24 @@ type Game struct {
 	bulletCooldown time.Duration
 	score          int
 	vectorFont     *VectorFont
+	state          GameState
+	gameOverReason string
 }
 
 // Update proceeds the game state.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
+	switch g.state {
+	case GameStatePlaying:
+		return g.updatePlaying()
+	case GameStateGameOver:
+		return g.updateGameOver()
+	}
+	return nil
+}
+
+// updatePlaying handles the game logic when playing
+func (g *Game) updatePlaying() error {
 	// Handle player input
 	g.handlePlayerInput()
 
@@ -48,6 +70,23 @@ func (g *Game) Update() error {
 	// Check collisions
 	g.checkCollisions()
 
+	// Check win condition (all asteroids destroyed)
+	if len(g.asteroids) == 0 {
+		g.state = GameStateGameOver
+		g.gameOverReason = "YOU WIN!"
+	}
+
+	return nil
+}
+
+// updateGameOver handles the game logic when in game over state
+func (g *Game) updateGameOver() error {
+	// Check for restart input
+	if ebiten.IsKeyPressed(ebiten.KeyEnter) {
+		g.Restart()
+		g.state = GameStatePlaying
+		g.gameOverReason = ""
+	}
 	return nil
 }
 
@@ -193,7 +232,10 @@ func (g *Game) checkCollisions() {
 	// Check player-asteroid collisions
 	for _, asteroid := range g.asteroids {
 		if PolygonsCollide(g.player, asteroid) {
-			g.Restart()
+			// Set game over state
+			g.state = GameStateGameOver
+			g.gameOverReason = "GAME OVER"
+
 			// Start a red flash fade effect for 1 second (60 frames)
 			redFlash := color.RGBA{255, 50, 50, 255}
 			blue := color.RGBA{0, 0, 255, 255} // Blue color
@@ -281,10 +323,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	// Draw score in top-right corner
-	scoreWidth := g.vectorFont.GetTextWidth(g.score)
+	scoreStr := fmt.Sprintf("%d", g.score)
+	scoreWidth := g.vectorFont.GetWidth(scoreStr)
 	scoreX := float32(g.screenWidth) - scoreWidth - 20 // 20 pixels from right edge
 	scoreY := float32(20)                              // 20 pixels from top
-	g.vectorFont.DrawNumber(screen, g.score, scoreX, scoreY)
+	g.vectorFont.DrawString(screen, scoreStr, scoreX, scoreY)
+
+	// Draw game over screen if in game over state
+	if g.state == GameStateGameOver {
+		g.drawGameOverScreen(screen)
+	}
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
@@ -301,7 +349,7 @@ func NewGame() *Game {
 		screenWidth:    800,
 		screenHeight:   600,
 		bulletCooldown: 100 * time.Millisecond,                // 100ms cooldown
-		vectorFont:     NewVectorFont(16, 24, 2, color.White), // 16x24 digit size, 2px line width, white color
+		vectorFont:     NewVectorFont(16, 24, 3, color.White), // 16x24 digit size, 2px line width, white color
 	}
 
 	// Use Restart to initialize the game state
@@ -312,6 +360,10 @@ func NewGame() *Game {
 
 // Restart resets the game state to initial conditions
 func (g *Game) Restart() {
+	// Reset game state
+	g.state = GameStatePlaying
+	g.gameOverReason = ""
+
 	// Reset score
 	g.score = 0
 
@@ -362,6 +414,32 @@ func (g *Game) Restart() {
 
 		g.asteroids = append(g.asteroids, asteroid)
 	}
+}
+
+// drawGameOverScreen draws the game over screen with score and restart instruction
+func (g *Game) drawGameOverScreen(screen *ebiten.Image) {
+	centerX := float32(g.screenWidth / 2)
+	centerY := float32(g.screenHeight / 2)
+
+	// Draw game over reason (GAME OVER or YOU WIN!)
+	reasonWidth := g.vectorFont.GetWidth(g.gameOverReason)
+	reasonX := centerX - (reasonWidth / 2)
+	reasonY := centerY - 60
+	g.vectorFont.DrawString(screen, g.gameOverReason, reasonX, reasonY)
+
+	// Draw final score
+	scoreText := fmt.Sprintf("SCORE: %d", g.score)
+	scoreWidth := g.vectorFont.GetWidth(scoreText)
+	scoreX := centerX - (scoreWidth / 2)
+	scoreY := centerY - 20
+	g.vectorFont.DrawString(screen, scoreText, scoreX, scoreY)
+
+	// Draw restart instruction
+	restartText := "PRESS ENTER TO RESTART"
+	restartWidth := g.vectorFont.GetWidth(restartText)
+	restartX := centerX - (restartWidth / 2)
+	restartY := centerY + 40
+	g.vectorFont.DrawString(screen, restartText, restartX, restartY)
 }
 
 func main() {
