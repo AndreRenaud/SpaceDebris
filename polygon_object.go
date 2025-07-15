@@ -1,11 +1,12 @@
 package main
 
 import (
+	"image"
 	"image/color"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 // Vector2 represents a 2D point or vector
@@ -29,18 +30,6 @@ type PolygonObject struct {
 	LineWidth float32
 }
 
-// NewPolygonObject creates a new polygon object
-func NewPolygonObject(vertices []Vector2) *PolygonObject {
-	return &PolygonObject{
-		Vertices:  vertices,
-		Position:  Vector2{X: 0, Y: 0},
-		Rotation:  0,
-		Scale:     1.0,
-		Color:     color.White,
-		LineWidth: 1.0,
-	}
-}
-
 // CreateAsteroid creates an irregular asteroid-like polygon
 func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *PolygonObject {
 	vertices := make([]Vector2, numVertices)
@@ -55,7 +44,14 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 			Y: math.Sin(angle) * radius,
 		}
 	}
-	return NewPolygonObject(vertices)
+	return &PolygonObject{
+		Vertices:  vertices,
+		Position:  Vector2{X: 0, Y: 0},
+		Rotation:  0,
+		Scale:     1.0,
+		Color:     color.White,
+		LineWidth: 1.0,
+	}
 }
 
 // GetTransformedVertices returns the vertices transformed by position, rotation, and scale
@@ -83,7 +79,17 @@ func (p *PolygonObject) getTransformedVertices() []Vector2 {
 	return transformed
 }
 
-// Draw renders the polygon to the screen
+// whiteImage is a 1x1 white image used for drawing colored shapes
+var (
+	whiteImage    = ebiten.NewImage(3, 3)
+	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
+)
+
+func init() {
+	whiteImage.Fill(color.White)
+}
+
+// Draw renders the polygon to the screen with antialiased lines
 func (p *PolygonObject) Draw(screen *ebiten.Image) {
 	if len(p.Vertices) < 3 {
 		return // Can't draw a polygon with less than 3 vertices
@@ -91,46 +97,19 @@ func (p *PolygonObject) Draw(screen *ebiten.Image) {
 
 	transformedVertices := p.getTransformedVertices()
 
-	// Draw lines between consecutive vertices
+	// Draw the polygon outline using vector.StrokeLine for each edge
 	for i := 0; i < len(transformedVertices); i++ {
 		start := transformedVertices[i]
 		end := transformedVertices[(i+1)%len(transformedVertices)] // Wrap to first vertex for last line
 
-		ebitenutil.DrawLine(
+		vector.StrokeLine(
 			screen,
-			start.X, start.Y,
-			end.X, end.Y,
+			float32(start.X), float32(start.Y),
+			float32(end.X), float32(end.Y),
+			p.LineWidth,
 			p.Color,
+			true, // antialiasing
 		)
-	}
-}
-
-// DrawFilled renders the polygon as a filled shape (simplified implementation)
-func (p *PolygonObject) DrawFilled(screen *ebiten.Image) {
-	// For now, just draw the outline with thicker lines
-	// In a more advanced implementation, you could use triangulation
-	// or the vector package's proper filling methods
-	transformedVertices := p.GetTransformedVertices()
-
-	if len(transformedVertices) < 3 {
-		return
-	}
-
-	// Draw multiple overlapping lines to simulate a filled effect
-	for thickness := 0; thickness < 3; thickness++ {
-		for i := 0; i < len(transformedVertices); i++ {
-			start := transformedVertices[i]
-			end := transformedVertices[(i+1)%len(transformedVertices)]
-
-			// Draw slightly offset lines to create thickness
-			offset := float64(thickness) * 0.5
-			ebitenutil.DrawLine(
-				screen,
-				start.X+offset, start.Y+offset,
-				end.X+offset, end.Y+offset,
-				p.Color,
-			)
-		}
 	}
 }
 
