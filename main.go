@@ -193,14 +193,7 @@ func (g *Game) checkCollisions() {
 	// Check player-asteroid collisions
 	for _, asteroid := range g.asteroids {
 		if PolygonsCollide(g.player, asteroid) {
-			// Reset score when player is hit
-			g.score = 0
-
-			// For now, just reset player position to center
-			// In a real game, you might handle lives, explosions, etc.
-			g.player.SetPosition(g.screenWidth/2, g.screenHeight/2)
-			g.player.Velocity = Vector2{X: 0, Y: 0}
-
+			g.Restart()
 			// Start a red flash fade effect for 1 second (60 frames)
 			redFlash := color.RGBA{255, 50, 50, 255}
 			blue := color.RGBA{0, 0, 255, 255} // Blue color
@@ -305,21 +298,35 @@ func NewGame() *Game {
 	rand.Seed(time.Now().UnixNano())
 
 	game := &Game{
-		asteroids:      nil,
-		bullets:        nil,
 		screenWidth:    800,
 		screenHeight:   600,
-		lastBulletTime: time.Now(),
-		bulletCooldown: 100 * time.Millisecond, // 100ms cooldown
-		score:          0,
+		bulletCooldown: 100 * time.Millisecond,                // 100ms cooldown
 		vectorFont:     NewVectorFont(16, 24, 2, color.White), // 16x24 digit size, 2px line width, white color
 	}
 
+	// Use Restart to initialize the game state
+	game.Restart()
+
+	return game
+}
+
+// Restart resets the game state to initial conditions
+func (g *Game) Restart() {
+	// Reset score
+	g.score = 0
+
+	// Clear all bullets and asteroids
+	g.bullets = nil
+	g.asteroids = nil
+
+	// Reset bullet timing
+	g.lastBulletTime = time.Now()
+
 	// Create player ship (triangle)
-	game.player = CreateTriangle(15)                                 // 15 pixel triangle
-	game.player.SetPosition(game.screenWidth/2, game.screenHeight/2) // Center of screen
-	blue := color.RGBA{0, 0, 255, 255}                               // Blue color
-	game.player.SetColor(blue)
+	g.player = CreateTriangle(15)                           // 15 pixel triangle
+	g.player.SetPosition(g.screenWidth/2, g.screenHeight/2) // Center of screen
+	blue := color.RGBA{0, 0, 255, 255}                      // Blue color
+	g.player.SetColor(blue)
 
 	// Create 3 random asteroids
 	for i := 0; i < 3; i++ {
@@ -334,8 +341,8 @@ func NewGame() *Game {
 
 		// Random position within the screen bounds (with some margin)
 		asteroid.SetPosition(
-			50+rand.Float64()*(game.screenWidth-100),  // X between 50 and 750
-			50+rand.Float64()*(game.screenHeight-100), // Y between 50 and 550
+			50+rand.Float64()*(g.screenWidth-100),  // X between 50 and 750
+			50+rand.Float64()*(g.screenHeight-100), // Y between 50 and 550
 		)
 
 		// Random rotation
@@ -353,10 +360,8 @@ func NewGame() *Game {
 		// Set color to white
 		asteroid.SetColor(color.White)
 
-		game.asteroids = append(game.asteroids, asteroid)
+		g.asteroids = append(g.asteroids, asteroid)
 	}
-
-	return game
 }
 
 func main() {
