@@ -260,7 +260,7 @@ func (p *PolygonObject) SetRotationSpeed(speed float64) {
 }
 
 // UpdateWithWrapping updates the polygon and wraps position around screen edges
-func (p *PolygonObject) Update(screenWidth, screenHeight float64) {
+func (p *PolygonObject) Update(screenWidth, screenHeight float64, withWrapping bool) {
 	// Update position based on velocity
 	p.Position.X += p.Velocity.X
 	p.Position.Y += p.Velocity.Y
@@ -275,16 +275,18 @@ func (p *PolygonObject) Update(screenWidth, screenHeight float64) {
 		p.Rotation += 2 * math.Pi
 	}
 
-	// Wrap position around screen edges
-	if p.Position.X < 0 {
-		p.Position.X += screenWidth
-	} else if p.Position.X > screenWidth {
-		p.Position.X -= screenWidth
-	}
+	if withWrapping {
+		// Wrap position around screen edges
+		if p.Position.X < 0 {
+			p.Position.X += screenWidth
+		} else if p.Position.X > screenWidth {
+			p.Position.X -= screenWidth
+		}
 
-	if p.Position.Y < 0 {
-		p.Position.Y += screenHeight
-	} else if p.Position.Y > screenHeight {
-		p.Position.Y -= screenHeight
+		if p.Position.Y < 0 {
+			p.Position.Y += screenHeight
+		} else if p.Position.Y > screenHeight {
+			p.Position.Y -= screenHeight
+		}
 	}
 }

@@ -10,12 +10,20 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+// Bullet represents a projectile fired by the player
+type Bullet struct {
+	polygon *PolygonObject
+}
+
 // Game implements ebiten.Game interface.
 type Game struct {
-	asteroids    []*PolygonObject
-	player       *PolygonObject
-	screenWidth  float64
-	screenHeight float64
+	asteroids      []*PolygonObject
+	player         *PolygonObject
+	bullets        []*Bullet
+	screenWidth    float64
+	screenHeight   float64
+	lastBulletTime time.Time
+	bulletCooldown time.Duration
 }
 
 // Update proceeds the game state.
@@ -25,12 +33,16 @@ func (g *Game) Update() error {
 	g.handlePlayerInput()
 
 	// Update player with wrapping
-	g.player.Update(g.screenWidth, g.screenHeight)
+	g.player.Update(g.screenWidth, g.screenHeight, true)
 
 	// Update all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
-		asteroid.Update(g.screenWidth, g.screenHeight)
+		asteroid.Update(g.screenWidth, g.screenHeight, true)
 	}
+
+	// Update bullets
+	g.updateBullets()
+
 	return nil
 }
 
@@ -75,6 +87,72 @@ func (g *Game) handlePlayerInput() {
 		g.player.Velocity.X = (g.player.Velocity.X / speed) * maxSpeed
 		g.player.Velocity.Y = (g.player.Velocity.Y / speed) * maxSpeed
 	}
+
+	// Shooting
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		now := time.Now()
+		if now.Sub(g.lastBulletTime) > g.bulletCooldown {
+			g.createBullet()
+			g.lastBulletTime = now
+		}
+	}
+}
+
+// createBullet creates a new bullet at the tip of the player ship
+func (g *Game) createBullet() {
+	// Calculate the tip position of the player triangle
+	tipOffset := 15.0 // Same as triangle size
+	tipX := g.player.Position.X + math.Sin(g.player.Rotation)*tipOffset
+	tipY := g.player.Position.Y - math.Cos(g.player.Rotation)*tipOffset
+
+	// Create a small rectangle for the bullet (2x2)
+	bulletPolygon := &PolygonObject{
+		Vertices: []Vector2{
+			{X: -1, Y: -1}, // Top left
+			{X: 1, Y: -1},  // Top right
+			{X: 1, Y: 1},   // Bottom right
+			{X: -1, Y: 1},  // Bottom left
+		},
+		Position:      Vector2{X: tipX, Y: tipY},
+		Velocity:      Vector2{X: 0, Y: 0},
+		Rotation:      0,
+		RotationSpeed: 0,
+		Scale:         1.0,
+		Color:         color.White,
+		LineWidth:     1.0,
+	}
+
+	// Set bullet velocity in the direction the player is facing
+	const bulletSpeed = 8.0
+	bulletPolygon.Velocity.X = math.Sin(g.player.Rotation) * bulletSpeed
+	bulletPolygon.Velocity.Y = -math.Cos(g.player.Rotation) * bulletSpeed
+
+	// Add player's velocity to bullet (inherit momentum)
+	bulletPolygon.Velocity.X += g.player.Velocity.X
+	bulletPolygon.Velocity.Y += g.player.Velocity.Y
+
+	bullet := &Bullet{polygon: bulletPolygon}
+	g.bullets = append(g.bullets, bullet)
+}
+
+// updateBullets updates all bullets and removes those that have left the screen
+func (g *Game) updateBullets() {
+	// Update bullet positions
+	for _, bullet := range g.bullets {
+		bullet.polygon.Update(g.screenWidth, g.screenHeight, false)
+	}
+
+	// Remove bullets that are off-screen (with some margin for safety)
+	margin := 50.0
+	var activeBullets []*Bullet
+	for _, bullet := range g.bullets {
+		pos := bullet.polygon.Position
+		if pos.X >= -margin && pos.X <= g.screenWidth+margin &&
+			pos.Y >= -margin && pos.Y <= g.screenHeight+margin {
+			activeBullets = append(activeBullets, bullet)
+		}
+	}
+	g.bullets = activeBullets
 }
 
 // Draw draws the game screen.
@@ -86,6 +164,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
 		asteroid.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
+	}
+
+	// Draw all bullets
+	for _, bullet := range g.bullets {
+		bullet.polygon.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
 	}
 }
 
@@ -100,15 +183,19 @@ func NewGame() *Game {
 	rand.Seed(time.Now().UnixNano())
 
 	game := &Game{
-		asteroids:    nil,
-		screenWidth:  800,
-		screenHeight: 600,
+		asteroids:      nil,
+		bullets:        nil,
+		screenWidth:    800,
+		screenHeight:   600,
+		lastBulletTime: time.Now(),
+		bulletCooldown: 100 * time.Millisecond, // 100ms cooldown
 	}
 
 	// Create player ship (triangle)
 	game.player = CreateTriangle(15)                                 // 15 pixel triangle
 	game.player.SetPosition(game.screenWidth/2, game.screenHeight/2) // Center of screen
-	game.player.SetColor(color.White)
+	blue := color.RGBA{0, 0, 255, 255}                               // Blue color
+	game.player.SetColor(blue)
 
 	// Create 3 random asteroids
 	for i := 0; i < 3; i++ {
