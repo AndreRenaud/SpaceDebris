@@ -14,8 +14,11 @@ web:
 	cp $(GOROOT)/lib/wasm/wasm_exec.js web/
 	cp index.html web/
 
+publish: web
+	scp -r web/ kaka:/var/www/fortyfootgames.duckdns.org/SpaceDebris
+
 clean:
 	rm -rf web
 	rm -f SpaceDebris
 
-.PHONY: web clean webserver default
+.PHONY: web clean webserver default publish
