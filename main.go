@@ -43,6 +43,9 @@ func (g *Game) Update() error {
 	// Update bullets
 	g.updateBullets()
 
+	// Check collisions
+	g.checkCollisions()
+
 	return nil
 }
 
@@ -155,20 +158,57 @@ func (g *Game) updateBullets() {
 	g.bullets = activeBullets
 }
 
+// checkCollisions handles all collision detection in the game
+func (g *Game) checkCollisions() {
+	// Check bullet-asteroid collisions
+	for i := len(g.bullets) - 1; i >= 0; i-- {
+		bullet := g.bullets[i]
+		bulletHit := false
+
+		for j := len(g.asteroids) - 1; j >= 0; j-- {
+			asteroid := g.asteroids[j]
+
+			if PolygonsCollide(bullet.polygon, asteroid) {
+				// Remove the bullet
+				g.bullets = append(g.bullets[:i], g.bullets[i+1:]...)
+				// Remove the asteroid
+				g.asteroids = append(g.asteroids[:j], g.asteroids[j+1:]...)
+				bulletHit = true
+				break
+			}
+		}
+
+		if bulletHit {
+			break // Move to next bullet since this one was removed
+		}
+	}
+
+	// Check player-asteroid collisions
+	for _, asteroid := range g.asteroids {
+		if PolygonsCollide(g.player, asteroid) {
+			// For now, just reset player position to center
+			// In a real game, you might handle lives, explosions, etc.
+			g.player.SetPosition(g.screenWidth/2, g.screenHeight/2)
+			g.player.Velocity = Vector2{X: 0, Y: 0}
+			break
+		}
+	}
+}
+
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw player ship
-	g.player.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
+	g.player.Draw(screen)
 
-	// Draw all asteroids with wrapping
+	// Draw all asteroids
 	for _, asteroid := range g.asteroids {
-		asteroid.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
+		asteroid.Draw(screen)
 	}
 
 	// Draw all bullets
 	for _, bullet := range g.bullets {
-		bullet.polygon.DrawWithWrapping(screen, g.screenWidth, g.screenHeight)
+		bullet.polygon.Draw(screen)
 	}
 }
 

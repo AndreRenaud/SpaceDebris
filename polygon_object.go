@@ -138,15 +138,20 @@ func (p *PolygonObject) Draw(screen *ebiten.Image) {
 	}
 }
 
-// GetBoundingBox returns the bounding box of the transformed polygon
-func (p *PolygonObject) GetBoundingBox() (minX, minY, maxX, maxY float64) {
+// BoundingBox represents a rectangular bounding box
+type BoundingBox struct {
+	MinX, MinY, MaxX, MaxY float64
+}
+
+// GetBoundingBox returns the axis-aligned bounding box of the polygon
+func (p *PolygonObject) GetBoundingBox() BoundingBox {
 	transformedVertices := p.getTransformedVertices()
 	if len(transformedVertices) == 0 {
-		return 0, 0, 0, 0
+		return BoundingBox{0, 0, 0, 0}
 	}
 
-	minX, minY = transformedVertices[0].X, transformedVertices[0].Y
-	maxX, maxY = minX, minY
+	minX, minY := transformedVertices[0].X, transformedVertices[0].Y
+	maxX, maxY := minX, minY
 
 	for _, vertex := range transformedVertices[1:] {
 		if vertex.X < minX {
@@ -163,57 +168,111 @@ func (p *PolygonObject) GetBoundingBox() (minX, minY, maxX, maxY float64) {
 		}
 	}
 
-	return minX, minY, maxX, maxY
+	return BoundingBox{minX, minY, maxX, maxY}
 }
 
-// DrawWithWrapping draws the polygon with screen wrapping
-func (p *PolygonObject) DrawWithWrapping(screen *ebiten.Image, screenWidth, screenHeight float64) {
-	if len(p.Vertices) < 3 {
-		return
+// BoundingBoxesOverlap checks if two bounding boxes overlap (fast check)
+func BoundingBoxesOverlap(box1, box2 BoundingBox) bool {
+	return box1.MinX <= box2.MaxX && box1.MaxX >= box2.MinX &&
+		box1.MinY <= box2.MaxY && box1.MaxY >= box2.MinY
+}
+
+// PointInPolygon checks if a point is inside a polygon using ray casting algorithm
+func PointInPolygon(point Vector2, vertices []Vector2) bool {
+	if len(vertices) < 3 {
+		return false
 	}
 
-	// Get bounding box to check if we need wrapping
-	minX, minY, maxX, maxY := p.GetBoundingBox()
+	inside := false
+	j := len(vertices) - 1
 
-	// Store original position
-	originalPos := p.Position
+	for i := 0; i < len(vertices); i++ {
+		xi, yi := vertices[i].X, vertices[i].Y
+		xj, yj := vertices[j].X, vertices[j].Y
 
-	// Determine which edges the polygon is crossing
-	drawOffsets := []Vector2{{0, 0}} // Always draw at original position
-
-	// Check horizontal wrapping
-	if minX < 0 && maxX > 0 {
-		// Crossing left edge - also draw on right side
-		drawOffsets = append(drawOffsets, Vector2{screenWidth, 0})
-	} else if maxX > screenWidth && minX < screenWidth {
-		// Crossing right edge - also draw on left side
-		drawOffsets = append(drawOffsets, Vector2{-screenWidth, 0})
-	}
-
-	// Check vertical wrapping
-	if minY < 0 && maxY > 0 {
-		// Crossing top edge - also draw on bottom
-		for i := len(drawOffsets) - 1; i >= 0; i-- {
-			offset := drawOffsets[i]
-			drawOffsets = append(drawOffsets, Vector2{offset.X, screenHeight})
+		if ((yi > point.Y) != (yj > point.Y)) &&
+			(point.X < (xj-xi)*(point.Y-yi)/(yj-yi)+xi) {
+			inside = !inside
 		}
-	} else if maxY > screenHeight && minY < screenHeight {
-		// Crossing bottom edge - also draw on top
-		for i := len(drawOffsets) - 1; i >= 0; i-- {
-			offset := drawOffsets[i]
-			drawOffsets = append(drawOffsets, Vector2{offset.X, -screenHeight})
+		j = i
+	}
+
+	return inside
+}
+
+// LineSegmentsIntersect checks if two line segments intersect
+func LineSegmentsIntersect(p1, p2, p3, p4 Vector2) bool {
+	// Calculate the direction vectors
+	d1 := Vector2{p2.X - p1.X, p2.Y - p1.Y}
+	d2 := Vector2{p4.X - p3.X, p4.Y - p3.Y}
+	d3 := Vector2{p1.X - p3.X, p1.Y - p3.Y}
+
+	// Calculate cross products
+	cross1 := d1.X*d2.Y - d1.Y*d2.X
+	cross2 := d3.X*d2.Y - d3.Y*d2.X
+	cross3 := d3.X*d1.Y - d3.Y*d1.X
+
+	// Check if lines are parallel
+	if math.Abs(cross1) < 1e-10 {
+		return false // Parallel lines
+	}
+
+	// Calculate intersection parameters
+	t1 := cross2 / cross1
+	t2 := cross3 / cross1
+
+	// Check if intersection point lies within both line segments
+	return t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1
+}
+
+// PolygonsCollide checks if two polygons collide
+func PolygonsCollide(poly1, poly2 *PolygonObject) bool {
+	// Fast bounding box check first
+	box1 := poly1.GetBoundingBox()
+	box2 := poly2.GetBoundingBox()
+
+	if !BoundingBoxesOverlap(box1, box2) {
+		return false // No collision possible if bounding boxes don't overlap
+	}
+
+	// Get transformed vertices for both polygons
+	vertices1 := poly1.getTransformedVertices()
+	vertices2 := poly2.getTransformedVertices()
+
+	if len(vertices1) < 3 || len(vertices2) < 3 {
+		return false
+	}
+
+	// Check if any vertex of polygon1 is inside polygon2
+	for _, vertex := range vertices1 {
+		if PointInPolygon(vertex, vertices2) {
+			return true
 		}
 	}
 
-	// Draw the polygon at each required position
-	for _, offset := range drawOffsets {
-		p.Position.X = originalPos.X + offset.X
-		p.Position.Y = originalPos.Y + offset.Y
-		p.Draw(screen)
+	// Check if any vertex of polygon2 is inside polygon1
+	for _, vertex := range vertices2 {
+		if PointInPolygon(vertex, vertices1) {
+			return true
+		}
 	}
 
-	// Restore original position
-	p.Position = originalPos
+	// Check if any edge of polygon1 intersects any edge of polygon2
+	for i := 0; i < len(vertices1); i++ {
+		edge1Start := vertices1[i]
+		edge1End := vertices1[(i+1)%len(vertices1)]
+
+		for j := 0; j < len(vertices2); j++ {
+			edge2Start := vertices2[j]
+			edge2End := vertices2[(j+1)%len(vertices2)]
+
+			if LineSegmentsIntersect(edge1Start, edge1End, edge2Start, edge2End) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // SetPosition sets the world position of the polygon
