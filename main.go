@@ -192,6 +192,13 @@ func (g *Game) checkCollisions() {
 			// In a real game, you might handle lives, explosions, etc.
 			g.player.SetPosition(g.screenWidth/2, g.screenHeight/2)
 			g.player.Velocity = Vector2{X: 0, Y: 0}
+
+			// Start a red flash fade effect for 1 second (60 frames)
+			redFlash := color.RGBA{255, 50, 50, 255}
+			blue := color.RGBA{0, 0, 255, 255} // Blue color
+			g.player.SetColor(redFlash)
+			g.player.StartFade(blue, 60)
+
 			break
 		}
 	}
@@ -229,6 +236,11 @@ func (g *Game) splitAsteroid(asteroidIndex int) {
 	asteroid1.SetVelocity(vel1X, vel1Y)
 	asteroid1.SetRotationSpeed((rand.Float64() - 0.5) * 0.15)
 
+	// Start a fade from white to red over 2 seconds (120 frames at 60 FPS)
+	redColor := color.RGBA{255, 100, 100, 255}
+	asteroid1.SetColor(redColor)
+	asteroid1.StartFade(color.White, 120)
+
 	// Create second smaller asteroid
 	asteroid2 := CreateAsteroid(newSize, irregularity, numVertices)
 	asteroid2.SetPosition(asteroid.Position.X+newSize*0.5, asteroid.Position.Y+newSize*0.5)
@@ -239,6 +251,10 @@ func (g *Game) splitAsteroid(asteroidIndex int) {
 	vel2Y := asteroid.Velocity.Y + (rand.Float64()-0.5)*2
 	asteroid2.SetVelocity(vel2X, vel2Y)
 	asteroid2.SetRotationSpeed((rand.Float64() - 0.5) * 0.15)
+
+	// Start Pulse red
+	asteroid2.SetColor(redColor)
+	asteroid2.StartFade(color.White, 120)
 
 	// Remove the original asteroid
 	g.asteroids = append(g.asteroids[:asteroidIndex], g.asteroids[asteroidIndex+1:]...)

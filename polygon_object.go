@@ -32,6 +32,12 @@ type PolygonObject struct {
 	Color color.Color
 	// Line width for drawing
 	LineWidth float32
+	// Color fading properties
+	FadeStartColor color.Color
+	FadeEndColor   color.Color
+	FadeProgress   float64 // 0.0 to 1.0, where 0 is start color and 1 is end color
+	FadeSpeed      float64 // How fast to fade (increment per frame)
+	IsFading       bool    // Whether the object is currently fading
 }
 
 // CreateAsteroid creates an irregular asteroid-like polygon
@@ -49,14 +55,19 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 		}
 	}
 	return &PolygonObject{
-		Vertices:      vertices,
-		Position:      Vector2{X: 0, Y: 0},
-		Velocity:      Vector2{X: 0, Y: 0},
-		Rotation:      0,
-		RotationSpeed: 0,
-		Scale:         1.0,
-		Color:         color.White,
-		LineWidth:     1.0,
+		Vertices:       vertices,
+		Position:       Vector2{X: 0, Y: 0},
+		Velocity:       Vector2{X: 0, Y: 0},
+		Rotation:       0,
+		RotationSpeed:  0,
+		Scale:          1.0,
+		Color:          color.White,
+		LineWidth:      1.0,
+		FadeStartColor: color.White,
+		FadeEndColor:   color.White,
+		FadeProgress:   0.0,
+		FadeSpeed:      0.0,
+		IsFading:       false,
 	}
 }
 
@@ -68,14 +79,19 @@ func CreateTriangle(size float64) *PolygonObject {
 		{X: size * 0.5, Y: size},  // Bottom right
 	}
 	return &PolygonObject{
-		Vertices:      vertices,
-		Position:      Vector2{X: 0, Y: 0},
-		Velocity:      Vector2{X: 0, Y: 0},
-		Rotation:      0,
-		RotationSpeed: 0,
-		Scale:         1.0,
-		Color:         color.White,
-		LineWidth:     1.0,
+		Vertices:       vertices,
+		Position:       Vector2{X: 0, Y: 0},
+		Velocity:       Vector2{X: 0, Y: 0},
+		Rotation:       0,
+		RotationSpeed:  0,
+		Scale:          1.0,
+		Color:          color.White,
+		LineWidth:      1.0,
+		FadeStartColor: color.White,
+		FadeEndColor:   color.White,
+		FadeProgress:   0.0,
+		FadeSpeed:      0.0,
+		IsFading:       false,
 	}
 }
 
@@ -294,6 +310,7 @@ func (p *PolygonObject) SetScale(scale float64) {
 // SetColor sets the drawing color
 func (p *PolygonObject) SetColor(c color.Color) {
 	p.Color = c
+	p.IsFading = false // Stop fading when color is set directly
 }
 
 // Rotate rotates the polygon by the given angle in radians
@@ -334,6 +351,9 @@ func (p *PolygonObject) Update(screenWidth, screenHeight float64, withWrapping b
 		p.Rotation += 2 * math.Pi
 	}
 
+	// Update color fading
+	p.updateFade()
+
 	if withWrapping {
 		// Wrap position around screen edges
 		if p.Position.X < 0 {
@@ -347,5 +367,55 @@ func (p *PolygonObject) Update(screenWidth, screenHeight float64, withWrapping b
 		} else if p.Position.Y > screenHeight {
 			p.Position.Y -= screenHeight
 		}
+	}
+}
+
+// interpolateColor interpolates between two colors based on progress (0.0 to 1.0)
+func interpolateColor(startColor, endColor color.Color, progress float64) color.Color {
+	// Clamp progress to [0, 1]
+	if progress < 0 {
+		progress = 0
+	} else if progress > 1 {
+		progress = 1
+	}
+
+	// Convert colors to RGBA
+	sr, sg, sb, sa := startColor.RGBA()
+	er, eg, eb, ea := endColor.RGBA()
+
+	// Interpolate each component
+	r := uint8((float64(sr>>8)*(1-progress) + float64(er>>8)*progress))
+	g := uint8((float64(sg>>8)*(1-progress) + float64(eg>>8)*progress))
+	b := uint8((float64(sb>>8)*(1-progress) + float64(eb>>8)*progress))
+	a := uint8((float64(sa>>8)*(1-progress) + float64(ea>>8)*progress))
+
+	return color.RGBA{r, g, b, a}
+}
+
+// StartFade begins a color fade from current color to target color
+func (p *PolygonObject) StartFade(targetColor color.Color, duration float64) {
+	p.FadeStartColor = p.Color
+	p.FadeEndColor = targetColor
+	p.FadeProgress = 0.0
+	p.FadeSpeed = 1.0 / duration // duration in frames (60 FPS)
+	p.IsFading = true
+}
+
+// updateFade updates the fade progress and color (called internally by Update)
+func (p *PolygonObject) updateFade() {
+	if !p.IsFading {
+		return
+	}
+
+	p.FadeProgress += p.FadeSpeed
+
+	if p.FadeProgress >= 1.0 {
+		// Fade complete
+		p.FadeProgress = 1.0
+		p.Color = p.FadeEndColor
+		p.IsFading = false
+	} else {
+		// Update color based on current progress
+		p.Color = interpolateColor(p.FadeStartColor, p.FadeEndColor, p.FadeProgress)
 	}
 }
