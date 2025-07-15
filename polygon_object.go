@@ -20,8 +20,12 @@ type PolygonObject struct {
 	Vertices []Vector2
 	// Position of the object's origin in world space
 	Position Vector2
+	// Velocity in pixels per frame
+	Velocity Vector2
 	// Rotation angle in radians
 	Rotation float64
+	// Rotation speed in radians per frame
+	RotationSpeed float64
 	// Scale factor
 	Scale float64
 	// Color for drawing
@@ -45,12 +49,14 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 		}
 	}
 	return &PolygonObject{
-		Vertices:  vertices,
-		Position:  Vector2{X: 0, Y: 0},
-		Rotation:  0,
-		Scale:     1.0,
-		Color:     color.White,
-		LineWidth: 1.0,
+		Vertices:      vertices,
+		Position:      Vector2{X: 0, Y: 0},
+		Velocity:      Vector2{X: 0, Y: 0},
+		Rotation:      0,
+		RotationSpeed: 0,
+		Scale:         1.0,
+		Color:         color.White,
+		LineWidth:     1.0,
 	}
 }
 
@@ -143,4 +149,32 @@ func (p *PolygonObject) Rotate(angle float64) {
 func (p *PolygonObject) Move(dx, dy float64) {
 	p.Position.X += dx
 	p.Position.Y += dy
+}
+
+// Update updates the polygon's position and rotation based on velocity and rotation speed
+func (p *PolygonObject) Update() {
+	// Update position based on velocity
+	p.Position.X += p.Velocity.X
+	p.Position.Y += p.Velocity.Y
+
+	// Update rotation based on rotation speed
+	p.Rotation += p.RotationSpeed
+
+	// Keep rotation in the range [0, 2π] for cleaner values
+	if p.Rotation > 2*math.Pi {
+		p.Rotation -= 2 * math.Pi
+	} else if p.Rotation < 0 {
+		p.Rotation += 2 * math.Pi
+	}
+}
+
+// SetVelocity sets the velocity of the polygon
+func (p *PolygonObject) SetVelocity(vx, vy float64) {
+	p.Velocity.X = vx
+	p.Velocity.Y = vy
+}
+
+// SetRotationSpeed sets the rotation speed in radians per frame
+func (p *PolygonObject) SetRotationSpeed(speed float64) {
+	p.RotationSpeed = speed
 }

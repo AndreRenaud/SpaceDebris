@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"log"
 	"math/rand"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -16,7 +17,10 @@ type Game struct {
 // Update proceeds the game state.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// TODO: Add game logic here
+	// Update all asteroids (movement and rotation)
+	for _, asteroid := range g.asteroids {
+		asteroid.Update()
+	}
 	return nil
 }
 
@@ -37,6 +41,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 
 // NewGame creates a new game instance with initialized asteroids
 func NewGame() *Game {
+	rand.Seed(time.Now().UnixNano())
+
 	game := &Game{
 		asteroids: make([]*PolygonObject, 3),
 	}
@@ -60,6 +66,15 @@ func NewGame() *Game {
 
 		// Random rotation
 		asteroid.SetRotation(rand.Float64() * 6.28) // 0 to 2π radians
+
+		// Random velocity (pixels per frame)
+		vx := (rand.Float64() - 0.5) * 4 // -2 to 2 pixels per frame
+		vy := (rand.Float64() - 0.5) * 4 // -2 to 2 pixels per frame
+		asteroid.SetVelocity(vx, vy)
+
+		// Random rotation speed (radians per frame)
+		rotSpeed := (rand.Float64() - 0.5) * 0.1 // -0.05 to 0.05 radians per frame
+		asteroid.SetRotationSpeed(rotSpeed)
 
 		// Set color to white
 		asteroid.SetColor(color.White)
