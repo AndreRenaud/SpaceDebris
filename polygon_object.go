@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image"
 	"image/color"
 	"math"
 
@@ -140,8 +139,7 @@ func (p *PolygonObject) getTransformedVertices() drawablePolygon {
 
 // whiteImage is a 1x1 white image used for drawing colored shapes
 var (
-	whiteImage    = ebiten.NewImage(3, 3)
-	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
+	whiteImage = ebiten.NewImage(3, 3)
 )
 
 func init() {
@@ -153,19 +151,61 @@ func (d drawablePolygon) Draw(screen *ebiten.Image, lineWidth float32, color col
 		return // Can't draw a polygon with less than 3 vertices
 	}
 
-	// Draw the polygon outline using vector.StrokeLine for each edge
-	for i := 0; i < len(d); i++ {
-		start := d[i]
-		end := d[(i+1)%len(d)] // Wrap to first vertex for last line
+	bounds := screen.Bounds()
+	sw, sh := float64(bounds.Dx()), float64(bounds.Dy())
 
-		vector.StrokeLine(
-			screen,
-			float32(start.X), float32(start.Y),
-			float32(end.X), float32(end.Y),
-			lineWidth,
-			color,
-			true, // antialiasing
-		)
+	// Find bounding box of the polygon to see if it needs wrapping
+	minX, minY := d[0].X, d[0].Y
+	maxX, maxY := minX, minY
+	for _, v := range d[1:] {
+		if v.X < minX {
+			minX = v.X
+		}
+		if v.X > maxX {
+			maxX = v.X
+		}
+		if v.Y < minY {
+			minY = v.Y
+		}
+		if v.Y > maxY {
+			maxY = v.Y
+		}
+	}
+
+	// Determine which offsets we need to draw at for screen wrapping
+	dxs := []float64{0}
+	if minX < 0 {
+		dxs = append(dxs, sw)
+	}
+	if maxX > sw {
+		dxs = append(dxs, -sw)
+	}
+
+	dys := []float64{0}
+	if minY < 0 {
+		dys = append(dys, sh)
+	}
+	if maxY > sh {
+		dys = append(dys, -sh)
+	}
+
+	// Draw the polygon outline for each required wrap position
+	for _, dx := range dxs {
+		for _, dy := range dys {
+			for i := 0; i < len(d); i++ {
+				start := d[i]
+				end := d[(i+1)%len(d)]
+
+				vector.StrokeLine(
+					screen,
+					float32(start.X+dx), float32(start.Y+dy),
+					float32(end.X+dx), float32(end.Y+dy),
+					lineWidth,
+					color,
+					true, // antialiasing
+				)
+			}
+		}
 	}
 }
 
