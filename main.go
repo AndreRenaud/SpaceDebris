@@ -113,13 +113,15 @@ func (g *Game) handlePlayerInput() {
 		g.player.Velocity.X += thrustX
 		g.player.Velocity.Y += thrustY
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		// Decelerate (reverse thrust)
-		thrustX := math.Sin(g.player.Rotation) * acceleration * 0.5
-		thrustY := -math.Cos(g.player.Rotation) * acceleration * 0.5
-		g.player.Velocity.X -= thrustX
-		g.player.Velocity.Y -= thrustY
-	}
+	/*
+		if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+			// Decelerate (reverse thrust)
+			thrustX := math.Sin(g.player.Rotation) * acceleration * 0.5
+			thrustY := -math.Cos(g.player.Rotation) * acceleration * 0.5
+			g.player.Velocity.X -= thrustX
+			g.player.Velocity.Y -= thrustY
+		}
+	*/
 
 	// Apply friction to gradually slow down the ship
 	g.player.Velocity.X *= friction
