@@ -1,9 +1,100 @@
 <!DOCTYPE html>
-<head><title>Space Debris</title></head>
-<script src="wasm_exec.js"></script>
-<script>
-const go = new Go();
-WebAssembly.instantiateStreaming(fetch("game.wasm"), go.importObject).then(result => {
-    go.run(result.instance);
-});
-</script>
+<html>
+<head>
+    <title>Space Debris</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: white;
+            font-family: sans-serif;
+        }
+        #loading-container {
+            width: 300px;
+            text-align: center;
+        }
+        #progress-bar-container {
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-container">
+        <div id="status">Loading Game...</div>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        const progressBar = document.getElementById('progress-bar');
+        const statusText = document.getElementById('status');
+        const loadingContainer = document.getElementById('loading-container');
+
+        async function loadAndRun() {
+            try {
+                const response = await fetch("game.wasm");
+                const contentLength = response.headers.get('Content-Length');
+                const total = parseInt(contentLength, 10);
+                
+                if (!contentLength) {
+                    console.warn("Content-Length header missing, progress bar will not work correctly.");
+                }
+
+                let loaded = 0;
+                const reader = response.body.getReader();
+                const chunks = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    
+                    chunks.push(value);
+                    loaded += value.length;
+                    
+                    if (total) {
+                        const percent = Math.round((loaded / total) * 100);
+                        progressBar.style.width = percent + '%';
+                        statusText.innerText = `Loading: ${percent}%`;
+                    }
+                }
+
+                const allChunks = new Uint8Array(loaded);
+                let offset = 0;
+                for (const chunk of chunks) {
+                    allChunks.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                const result = await WebAssembly.instantiate(allChunks, go.importObject);
+                loadingContainer.style.display = 'none';
+                go.run(result.instance);
+            } catch (err) {
+                statusText.innerText = "Failed to load game.";
+                console.error(err);
+            }
+        }
+
+        loadAndRun();
+    </script>
+</body>
+</html>
