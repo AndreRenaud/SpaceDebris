@@ -41,12 +41,14 @@ type Game struct {
 	gameOverReason     string
 
 	// We keep the last frame's screen for phosphor ghosting effect
-	phosphorGhost *ebiten.Image
+	phosphorGhost      *ebiten.Image
+	phosphorGhostAlpha float32
 }
 
 // Update proceeds the game state.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
+	g.phosphorGhostAlpha *= 0.9
 	switch g.state {
 	case GameStatePlaying:
 		return g.updatePlaying()
@@ -353,8 +355,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.phosphorGhost != nil {
 		op := &ebiten.DrawImageOptions{}
-		op.ColorScale.ScaleAlpha(0.9)
+		op.ColorScale.ScaleAlpha(g.phosphorGhostAlpha)
 		screen.DrawImage(g.phosphorGhost, op)
+		g.phosphorGhostAlpha = 1
 	}
 	// Capture current screen for next frame's trail
 	snapshot := ebiten.NewImageFromImage(screen)
