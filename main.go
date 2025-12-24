@@ -62,8 +62,8 @@ func (g *Game) updatePlaying() error {
 	g.player.Update(g.screenWidth, g.screenHeight, true)
 
 	// Update player flame position and rotation to match player
-	g.playerFlame.Position = g.player.Position
-	g.playerFlame.Rotation = g.player.Rotation
+	g.playerFlame.SetPosition(g.player.Position.X, g.player.Position.Y)
+	g.playerFlame.SetRotation(g.player.Rotation)
 
 	// Update all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
@@ -105,10 +105,10 @@ func (g *Game) handlePlayerInput() {
 
 	// Rotation controls
 	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		g.player.Rotation -= rotationSpeed
+		g.player.SetRotation(g.player.Rotation - rotationSpeed)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		g.player.Rotation += rotationSpeed
+		g.player.SetRotation(g.player.Rotation + rotationSpeed)
 	}
 
 	// Forward/backward thrust

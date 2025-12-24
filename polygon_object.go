@@ -44,6 +44,9 @@ type PolygonObject struct {
 	drawCount      int
 
 	Trail []drawablePolygon
+
+	transformedValid bool
+	transformedCache drawablePolygon
 }
 
 type drawablePolygon []Vector2
@@ -143,6 +146,9 @@ func CreatePlayerFlame(size float64) *PolygonObject {
 
 // GetTransformedVertices returns the vertices transformed by position, rotation, and scale
 func (p *PolygonObject) getTransformedVertices() drawablePolygon {
+	if p.transformedValid {
+		return p.transformedCache
+	}
 	transformed := make([]Vector2, len(p.Vertices))
 	cos := math.Cos(p.Rotation)
 	sin := math.Sin(p.Rotation)
@@ -162,6 +168,8 @@ func (p *PolygonObject) getTransformedVertices() drawablePolygon {
 			Y: rotatedY + p.Position.Y,
 		}
 	}
+	p.transformedValid = true
+	p.transformedCache = transformed
 
 	return transformed
 }
@@ -303,10 +311,9 @@ func (p *PolygonObject) GetBoundingBox() BoundingBox {
 	return BoundingBox{minX, minY, maxX, maxY}
 }
 
-// BoundingBoxesOverlap checks if two bounding boxes overlap (fast check)
-func BoundingBoxesOverlap(box1, box2 BoundingBox) bool {
-	return box1.MinX <= box2.MaxX && box1.MaxX >= box2.MinX &&
-		box1.MinY <= box2.MaxY && box1.MaxY >= box2.MinY
+func (b BoundingBox) Overlaps(other BoundingBox) bool {
+	return b.MinX <= other.MaxX && b.MaxX >= other.MinX &&
+		b.MinY <= other.MaxY && b.MaxY >= other.MinY
 }
 
 // PointInPolygon checks if a point is inside a polygon using ray casting algorithm
@@ -363,7 +370,7 @@ func PolygonsCollide(poly1, poly2 *PolygonObject) bool {
 	box1 := poly1.GetBoundingBox()
 	box2 := poly2.GetBoundingBox()
 
-	if !BoundingBoxesOverlap(box1, box2) {
+	if !box1.Overlaps(box2) {
 		return false // No collision possible if bounding boxes don't overlap
 	}
 
@@ -409,17 +416,20 @@ func PolygonsCollide(poly1, poly2 *PolygonObject) bool {
 
 // SetPosition sets the world position of the polygon
 func (p *PolygonObject) SetPosition(x, y float64) {
+	p.transformedValid = false
 	p.Position.X = x
 	p.Position.Y = y
 }
 
 // SetRotation sets the rotation angle in radians
 func (p *PolygonObject) SetRotation(angle float64) {
+	p.transformedValid = false
 	p.Rotation = angle
 }
 
 // SetScale sets the scale factor
 func (p *PolygonObject) SetScale(scale float64) {
+	p.transformedValid = false
 	p.Scale = scale
 }
 
@@ -454,8 +464,14 @@ func (p *PolygonObject) SetRotationSpeed(speed float64) {
 // UpdateWithWrapping updates the polygon and wraps position around screen edges
 func (p *PolygonObject) Update(screenWidth, screenHeight float64, withWrapping bool) {
 	// Update position based on velocity
-	p.Position.X += p.Velocity.X
-	p.Position.Y += p.Velocity.Y
+	if p.Velocity.X != 0 {
+		p.Position.X += p.Velocity.X
+		p.transformedValid = false
+	}
+	if p.Velocity.Y != 0 {
+		p.Position.Y += p.Velocity.Y
+		p.transformedValid = false
+	}
 
 	// Update rotation based on rotation speed
 	p.Rotation += p.RotationSpeed
