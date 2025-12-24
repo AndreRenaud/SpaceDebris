@@ -39,6 +39,9 @@ type Game struct {
 	vectorFont         *VectorFont
 	state              GameState
 	gameOverReason     string
+
+	// We keep the last frame's screen for phosphor ghosting effect
+	phosphorGhost *ebiten.Image
 }
 
 // Update proceeds the game state.
@@ -173,7 +176,6 @@ func (g *Game) createBullet() {
 		Scale:         1.0,
 		Color:         color.White,
 		LineWidth:     1.0,
-		Trail:         make([]drawablePolygon, 0, ghostTrailLength),
 	}
 
 	// Set bullet velocity in the direction the player is facing
@@ -348,6 +350,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.state == GameStateGameOver {
 		g.drawGameOverScreen(screen)
 	}
+
+	if g.phosphorGhost != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.ColorScale.ScaleAlpha(0.9)
+		screen.DrawImage(g.phosphorGhost, op)
+	}
+	// Capture current screen for next frame's trail
+	snapshot := ebiten.NewImageFromImage(screen)
+	g.phosphorGhost = snapshot
+
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.

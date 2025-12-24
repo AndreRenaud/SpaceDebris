@@ -8,10 +8,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-const (
-	ghostTrailLength = 5 // Number of frames to keep in the trail
-)
-
 // Vector2 represents a 2D point or vector
 type Vector2 struct {
 	X, Y float64
@@ -42,8 +38,6 @@ type PolygonObject struct {
 	FadeSpeed      float64 // How fast to fade (increment per frame)
 	IsFading       bool    // Whether the object is currently fading
 	drawCount      int
-
-	Trail []drawablePolygon
 
 	transformedValid bool
 	transformedCache drawablePolygon
@@ -79,7 +73,6 @@ func CreateAsteroid(baseRadius float64, irregularity float64, numVertices int) *
 		FadeProgress:   0.0,
 		FadeSpeed:      0.0,
 		IsFading:       false,
-		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
 	}
 }
 
@@ -111,7 +104,6 @@ func CreatePlayer(size float64) *PolygonObject {
 		FadeProgress:   0.0,
 		FadeSpeed:      0.0,
 		IsFading:       false,
-		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
 	}
 }
 
@@ -140,7 +132,6 @@ func CreatePlayerFlame(size float64) *PolygonObject {
 		FadeProgress:   0.0,
 		FadeSpeed:      0.0,
 		IsFading:       false,
-		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
 	}
 }
 
@@ -253,29 +244,8 @@ func (p *PolygonObject) Draw(screen *ebiten.Image) {
 	}
 	p.drawCount++
 
-	max := len(p.Trail)
-	for i, trail := range p.Trail {
-		r, g, b, _ := p.Color.RGBA()
-		ratio := 1 - float64(i)/float64(max)
-		newCol := color.RGBA{
-			R: uint8(int(float64(r)*ratio) >> 8),
-			G: uint8(int(float64(g)*ratio) >> 8),
-			B: uint8(int(float64(b)*ratio) >> 8),
-			A: 0xff,
-		}
-		trail.Draw(screen, p.LineWidth, newCol)
-	}
 	transformedVertices := p.getTransformedVertices()
 	transformedVertices.Draw(screen, p.LineWidth, p.Color)
-
-	// Don't add everything to the trail
-	if p.drawCount%4 == 0 {
-		p.Trail = append([]drawablePolygon{transformedVertices}, p.Trail...)
-		if len(p.Trail) > ghostTrailLength {
-			p.Trail = p.Trail[:ghostTrailLength] // Limit trail length
-		}
-	}
-
 }
 
 // BoundingBox represents a rectangular bounding box
