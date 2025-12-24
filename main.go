@@ -26,17 +26,19 @@ type Bullet struct {
 
 // Game implements ebiten.Game interface.
 type Game struct {
-	asteroids      []*PolygonObject
-	player         *PolygonObject
-	bullets        []*Bullet
-	screenWidth    float64
-	screenHeight   float64
-	lastBulletTime time.Time
-	bulletCooldown time.Duration
-	score          int
-	vectorFont     *VectorFont
-	state          GameState
-	gameOverReason string
+	asteroids          []*PolygonObject
+	player             *PolygonObject
+	playerFlame        *PolygonObject
+	playerAccelerating bool
+	bullets            []*Bullet
+	screenWidth        float64
+	screenHeight       float64
+	lastBulletTime     time.Time
+	bulletCooldown     time.Duration
+	score              int
+	vectorFont         *VectorFont
+	state              GameState
+	gameOverReason     string
 }
 
 // Update proceeds the game state.
@@ -58,6 +60,10 @@ func (g *Game) updatePlaying() error {
 
 	// Update player with wrapping
 	g.player.Update(g.screenWidth, g.screenHeight, true)
+
+	// Update player flame position and rotation to match player
+	g.playerFlame.Position = g.player.Position
+	g.playerFlame.Rotation = g.player.Rotation
 
 	// Update all asteroids with wrapping
 	for _, asteroid := range g.asteroids {
@@ -106,6 +112,7 @@ func (g *Game) handlePlayerInput() {
 	}
 
 	// Forward/backward thrust
+	g.playerAccelerating = ebiten.IsKeyPressed(ebiten.KeyArrowUp)
 	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		// Accelerate in the direction the ship is facing
 		thrustX := math.Sin(g.player.Rotation) * acceleration
@@ -315,6 +322,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw player ship
 	g.player.Draw(screen)
 
+	// Draw player flame if accelerating
+	if g.playerAccelerating {
+		g.playerFlame.Draw(screen)
+	}
+
 	// Draw all asteroids
 	for _, asteroid := range g.asteroids {
 		asteroid.Draw(screen)
@@ -382,6 +394,11 @@ func (g *Game) Restart() {
 	g.player.SetPosition(g.screenWidth/2, g.screenHeight/2) // Center of screen
 	blue := color.RGBA{0, 0, 255, 255}                      // Blue color
 	g.player.SetColor(blue)
+
+	// Create player flame
+	g.playerFlame = CreatePlayerFlame(25)
+	g.playerFlame.SetPosition(g.player.Position.X, g.player.Position.Y)
+	g.playerFlame.SetRotation(g.player.Rotation)
 
 	// Create 3 random asteroids
 	for i := 0; i < 3; i++ {

@@ -112,6 +112,35 @@ func CreatePlayer(size float64) *PolygonObject {
 	}
 }
 
+// CreatePlayerFlame creates a crown-shaped engine flame
+func CreatePlayerFlame(size float64) *PolygonObject {
+	vertices := []Vector2{
+		{X: -size * 0.15, Y: size * 0.7}, // Left start
+		{X: -size * 0.25, Y: size * 1.1}, // Left point
+		{X: -size * 0.1, Y: size * 0.9},  // Left valley
+		{X: 0, Y: size * 1.3},            // Middle point
+		{X: size * 0.1, Y: size * 0.9},   // Right valley
+		{X: size * 0.25, Y: size * 1.1},  // Right point
+		{X: size * 0.15, Y: size * 0.7},  // Right end
+	}
+	return &PolygonObject{
+		Vertices:       vertices,
+		Position:       Vector2{X: 0, Y: 0},
+		Velocity:       Vector2{X: 0, Y: 0},
+		Rotation:       0,
+		RotationSpeed:  0,
+		Scale:          1.0,
+		Color:          color.RGBA{255, 69, 0, 255}, // Orange-Red
+		LineWidth:      1.5,
+		FadeStartColor: color.RGBA{255, 69, 0, 255},
+		FadeEndColor:   color.RGBA{255, 69, 0, 255},
+		FadeProgress:   0.0,
+		FadeSpeed:      0.0,
+		IsFading:       false,
+		Trail:          make([]drawablePolygon, 0, ghostTrailLength),
+	}
+}
+
 // GetTransformedVertices returns the vertices transformed by position, rotation, and scale
 func (p *PolygonObject) getTransformedVertices() drawablePolygon {
 	transformed := make([]Vector2, len(p.Vertices))
